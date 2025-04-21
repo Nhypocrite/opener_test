@@ -2,71 +2,134 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>页面 A (父页面)</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; }
-        #messageLog { border: 1px solid #ccc; padding: 10px; min-height: 50px; background-color: #f9f9f9; margin-top: 10px; white-space: pre-wrap; word-wrap: break-word; }
-        button { padding: 10px 15px; font-size: 16px; cursor: pointer; }
+        body { font-family: sans-serif; padding: 15px; font-size: 14px; line-height: 1.6; }
+        .log-box { border: 1px solid #ccc; padding: 10px; min-height: 60px; background-color: #f9f9f9; margin-top: 10px; white-space: pre-wrap; word-wrap: break-word; font-size: 12px; max-height: 200px; overflow-y: auto; }
+        button { padding: 10px 15px; font-size: 16px; cursor: pointer; margin-bottom: 10px; }
+        strong { color: blue; }
     </style>
+    <!-- 引入 VConsole -->
+    <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+    <script>
+      // 初始化 VConsole
+      var vConsole = new VConsole();
+      console.log("[页面 A] VConsole 初始化完毕。");
+    </script>
 </head>
 <body>
-    <h1>页面 A</h1>
-    <p>这是初始页面。</p>
-    <button id="loginButton">模拟登录 (打开页面 B)</button>
+    <h1>页面 A (父页面)</h1>
+    <p>这是初始页面。请打开 VConsole 查看详细日志。</p>
+    <button id="openButton">打开页面 B (弹窗)</button>
 
-    <h2>接收到的来自页面 B 的消息:</h2>
-    <pre id="messageLog">尚未收到消息...</pre>
+    <h2>页面 A 状态与日志:</h2>
+    <div id="pageALog" class="log-box">页面 A 初始化...</div>
+
+    <h2>从页面 B 接收到的消息:</h2>
+    <pre id="messageLog" class="log-box">尚未收到消息...</pre>
 
     <script>
-        const loginButton = document.getElementById('loginButton');
+        const openButton = document.getElementById('openButton');
         const messageLog = document.getElementById('messageLog');
-        let popupWindowRef = null; // 用来保存弹窗的引用
+        const pageALog = document.getElementById('pageALog');
+        let popupWindowRef = null; // 保存弹窗引用
+        let popupCheckInterval = null; // 弹窗状态检查定时器
 
-        loginButton.onclick = () => {
-            console.log('[页面 A] 尝试打开页面 B (popup.html)...');
+        // 在页面和控制台都记录日志的辅助函数
+        function logOnPageA(message) {
+            console.log(`[页面 A] ${message}`);
+            // 只保留最新的几条日志在页面上，避免过多内容
+            const logLines = pageALog.innerHTML.split('<br>').slice(-5);
+            pageALog.innerHTML = logLines.join('<br>') + `<br>${new Date().toLocaleTimeString()}: ${message}`;
+            pageALog.scrollTop = pageALog.scrollHeight; // 滚动到底部
+        }
+
+        logOnPageA("页面脚本开始执行。");
+
+        openButton.onclick = () => {
+            logOnPageA("尝试打开页面 B (popup.html)...");
             messageLog.textContent = '尝试打开弹窗...';
-            // 模拟合作方的 window.open
-            // 注意：'popup.html' 需要能被 WebView 访问到
-            popupWindowRef = window.open('popup.html', 'authPopup', 'width=500,height=600,scrollbars=yes,resizable=yes');
 
-            if (popupWindowRef) {
-                console.log('[页面 A] 弹窗似乎已打开。等待消息...');
-                messageLog.textContent = '弹窗已打开，等待来自页面 B 的消息...';
-            } else {
-                console.error('[页面 A] 无法打开弹窗！可能是被阻止了。');
-                messageLog.textContent = '错误：无法打开弹窗！';
+            // 清理之前的检查定时器（如果存在）
+            if (popupCheckInterval) {
+                clearInterval(popupCheckInterval);
+                popupCheckInterval = null;
+            }
+
+            try {
+                popupWindowRef = window.open('popup.html', 'authPopup', 'width=500,height=600,scrollbars=yes,resizable=yes');
+
+                if (popupWindowRef) {
+                    logOnPageA("window.open 调用成功，获得了弹窗引用。");
+                    messageLog.textContent = '弹窗已打开，等待来自页面 B 的消息...';
+
+                    // 定期检查弹窗状态
+                    popupCheckInterval = setInterval(() => {
+                        if (popupWindowRef) {
+                            if (popupWindowRef.closed) {
+                                logOnPageA("检测到弹窗已被关闭。");
+                                messageLog.textContent = '弹窗已关闭。';
+                                clearInterval(popupCheckInterval); // 停止检查
+                                popupCheckInterval = null;
+                                popupWindowRef = null; // 清除引用
+                            } else {
+                                // logOnPageA("弹窗当前状态：打开"); // 这条日志太频繁，可以注释掉
+                            }
+                        } else {
+                           // logOnPageA("弹窗引用丢失或从未成功获取。");
+                           // clearInterval(popupCheckInterval);
+                           // popupCheckInterval = null;
+                        }
+                    }, 1000); // 每秒检查一次
+
+                } else {
+                    logOnPageA("<strong>错误: window.open 返回 null！弹窗可能被阻止。</strong>");
+                    messageLog.textContent = '错误：无法打开弹窗！请检查 App 设置或 WebView 实现。';
+                }
+            } catch (error) {
+                 logOnPageA(`<strong>错误: 调用 window.open 时发生异常: ${error.message}</strong>`);
+                 console.error('[页面 A] window.open 异常:', error);
+                 messageLog.textContent = '错误：打开弹窗时发生异常！';
             }
         };
 
         // 监听来自页面 B 的 postMessage
         window.addEventListener('message', (event) => {
-            console.log('[页面 A] 收到 message 事件:', event);
+            logOnPageA(`收到 'message' 事件。来源 (origin): ${event.origin}`);
+            console.log('[页面 A] 完整 message 事件对象:', event);
 
-            // 可选的安全检查：检查消息来源
-            // if (event.origin !== '期望的来源') {
-            //     console.warn('[页面 A] 收到来自非预期来源的消息:', event.origin);
+            // 实际应用中应检查 event.origin 是否可信
+            // if (event.origin !== '预期来源') {
+            //     logOnPageA(`警告: 收到来自非预期来源 (${event.origin}) 的消息，已忽略。`);
             //     return;
             // }
 
-            // 显示收到的数据
-            messageLog.textContent = `收到消息:\n${JSON.stringify(event.data, null, 2)}`;
-            console.log('[页面 A] 已将消息显示在页面上。');
+            logOnPageA("尝试解析 event.data...");
+            try {
+                const receivedData = event.data;
+                logOnPageA(`成功解析数据: ${JSON.stringify(receivedData)}`);
+                messageLog.textContent = `收到消息:\n${JSON.stringify(receivedData, null, 2)}`;
 
-            // 检查弹窗是否已关闭 (仅作观察)
-            if (popupWindowRef) {
-                setTimeout(() => { // 稍微延迟检查，给 close() 一点时间
-                     if (popupWindowRef.closed) {
-                        console.log('[页面 A] 检测到弹窗已被关闭。');
+                // 收到消息后再次检查弹窗状态
+                if (popupWindowRef) {
+                    if (popupWindowRef.closed) {
+                         logOnPageA("收到消息时，检测到弹窗已关闭。");
                     } else {
-                        console.warn('[页面 A] 检测到弹窗仍然是打开状态！');
+                         logOnPageA("收到消息时，检测到弹窗仍然是打开状态。");
                     }
-                }, 100); // 100ms 后检查
-            }
+                } else {
+                     logOnPageA("收到消息时，弹窗引用不存在。");
+                }
 
+            } catch (error) {
+                 logOnPageA(`<strong>错误: 解析收到的消息数据时出错: ${error.message}</strong>`);
+                 console.error('[页面 A] 解析消息数据错误:', error, '原始数据:', event.data);
+                 messageLog.textContent = '错误：收到的消息数据格式无法解析。';
+            }
         }, false);
 
-        console.log('[页面 A] 页面加载完成，已设置好按钮点击和消息监听。');
+        logOnPageA("页面加载完成，事件监听器已设置。");
     </script>
 </body>
 </html>

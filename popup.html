@@ -2,83 +2,112 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>页面 B (模拟回调)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>页面 B (弹窗)</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #eef; }
-        .status { font-weight: bold; }
+        body { font-family: sans-serif; padding: 15px; background-color: #eef; font-size: 14px; line-height: 1.6; }
+        .log-box { border: 1px solid #99c; padding: 10px; min-height: 60px; background-color: #fdfdff; margin-top: 10px; white-space: pre-wrap; word-wrap: break-word; font-size: 12px; max-height: 200px; overflow-y: auto; }
+        button { padding: 10px 15px; font-size: 16px; cursor: pointer; margin-top: 15px; }
+        strong { color: red; }
     </style>
+    <!-- 引入 VConsole -->
+    <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+    <script>
+      // 初始化 VConsole
+      var vConsole = new VConsole();
+      console.log("[页面 B] VConsole 初始化完毕。");
+    </script>
 </head>
 <body>
-    <h1>页面 B</h1>
-    <p>模拟授权成功后的回调页面。</p>
-    <p class="status" id="statusMessage">准备发送消息并尝试关闭...</p>
+    <h1>页面 B (弹窗)</h1>
+    <p>这是模拟的回调页面。请打开 VConsole 查看详细日志。</p>
+    <button id="sendAndCloseButton">发送消息回页面 A 并尝试关闭</button>
+
+    <h2>页面 B 状态与日志:</h2>
+    <div id="pageBLog" class="log-box">页面 B 初始化...</div>
 
     <script>
-        window.onload = () => {
-            console.log('[页面 B] 页面加载完成。');
+        const sendAndCloseButton = document.getElementById('sendAndCloseButton');
+        const pageBLog = document.getElementById('pageBLog');
 
-            // 模拟合作方获取到的数据
+        // 在页面和控制台都记录日志的辅助函数
+        function logOnPageB(message) {
+            console.log(`[页面 B] ${message}`);
+            // 只保留最新的几条日志在页面上
+            const logLines = pageBLog.innerHTML.split('<br>').slice(-5);
+            pageBLog.innerHTML = logLines.join('<br>') + `<br>${new Date().toLocaleTimeString()}: ${message}`;
+            pageBLog.scrollTop = pageBLog.scrollHeight; // 滚动到底部
+        }
+
+        logOnPageB("页面脚本开始执行。");
+
+        // 检查 window.opener 状态
+        if (window.opener && !window.opener.closed) {
+            logOnPageB("检测到有效的 window.opener (父窗口)。");
+        } else if (window.opener && window.opener.closed) {
+            logOnPageB("<strong>警告: 检测到 window.opener，但它似乎已经关闭了！</strong>");
+        } else {
+            logOnPageB("<strong>警告: window.opener 不存在或无法访问！将无法向父窗口发送消息。</strong>");
+        }
+
+        sendAndCloseButton.onclick = () => {
+            logOnPageB("按钮被点击，开始执行发送消息和关闭操作...");
+
+            // 1. 准备要发送的数据
             const dataToSend = {
-                status: 'success',
-                message: '模拟登录成功',
-                simulatedToken: 'fake-token-' + Date.now(),
-                userId: 'simulated-user-123'
+                status: 'success-manual',
+                message: '来自页面 B 的手动消息',
+                timestamp: new Date().toISOString(),
+                payload: { detail: '这是手动触发的数据' }
             };
+            logOnPageB(`准备发送的数据: ${JSON.stringify(dataToSend)}`);
 
-            // 模拟合作方的 setTimeout
-            const delay = 500; // 500ms 延迟
-            console.log(`[页面 B] 将在 ${delay}ms 后尝试 postMessage 和 close()。`);
-
-            setTimeout(() => {
-                console.log('[页面 B] setTimeout 触发，开始执行操作...');
-                const statusMessage = document.getElementById('statusMessage');
-                statusMessage.textContent = '正在尝试发送消息...';
-
-                // 1. 尝试发送消息给父窗口 (页面 A)
-                if (window.opener && !window.opener.closed) {
-                    console.log('[页面 B] 检测到 window.opener 存在且未关闭。尝试 postMessage...');
-                    try {
-                        // 使用 '*' 作为目标源，模拟合作方代码，允许发送到任何源
-                        window.opener.postMessage(dataToSend, '*');
-                        console.log('[页面 B] postMessage 已调用。数据:', dataToSend);
-                        statusMessage.textContent = '消息已尝试发送。正在尝试关闭...';
-                    } catch (error) {
-                        console.error('[页面 B] 调用 postMessage 时出错:', error);
-                        statusMessage.textContent = `发送消息时出错: ${error.message}`;
-                        // 即使出错，仍然尝试关闭
-                    }
-                } else {
-                    console.warn('[页面 B] window.opener 不存在、已关闭或无法访问。无法发送 postMessage。');
-                    statusMessage.textContent = '无法访问父窗口，无法发送消息。正在尝试关闭...';
-                }
-
-                // 2. 尝试关闭自身
-                console.log('[页面 B] 尝试调用 window.close()...');
+            // 2. 尝试发送消息
+            logOnPageB("尝试调用 window.opener.postMessage...");
+            if (window.opener && !window.opener.closed) {
                 try {
-                    window.close();
-                    // 如果 close() 成功执行，下面的日志可能不会在控制台出现 (因为窗口已关闭)
-                    console.log('[页面 B] window.close() 调用已执行 (不代表一定成功关闭)。');
-                    // 如果窗口没关掉，这条信息会显示
-                     if (!window.closed) {
-                         statusMessage.textContent += ' 但窗口似乎未能关闭。';
-                         document.body.innerHTML += '<p style="color: red;"><strong>窗口未能自动关闭。请手动关闭。</strong></p>';
-                     }
+                    window.opener.postMessage(dataToSend, '*'); // '*' 允许任何来源，生产环境应指定来源
+                    logOnPageB("window.opener.postMessage 调用成功。");
                 } catch (error) {
-                    console.error('[页面 B] 调用 window.close() 时出错:', error);
-                    statusMessage.textContent += ` 关闭窗口时出错: ${error.message}`;
+                    logOnPageB(`<strong>错误: 调用 postMessage 时发生异常: ${error.message}</strong>`);
+                    console.error('[页面 B] postMessage 异常:', error);
                 }
+            } else {
+                logOnPageB("<strong>警告: window.opener 无效或已关闭，无法发送消息。</strong>");
+            }
 
-                console.log('[页面 B] 尝试发送消息和关闭的操作已完成。');
+            // 3. 尝试关闭窗口
+            logOnPageB("尝试调用 window.close()...");
+            try {
+                window.close();
+                // 注意: 如果 close() 成功，后续的脚本可能不会执行或日志不会显示
+                logOnPageB("window.close() 调用已执行 (不保证窗口实际已关闭)。");
 
-            }, delay);
+                // 尝试检查自身是否关闭 (可能不准确，因为检查时可能还没完全关闭)
+                setTimeout(() => {
+                    if (window.closed) {
+                         logOnPageB("延迟检查：窗口似乎已关闭。"); // 可能看不到这条，如果真关了
+                    } else {
+                         logOnPageB("延迟检查：窗口似乎仍未关闭。");
+                         pageBLog.innerHTML += '<br><strong style="color:red;">提示：窗口未能自动关闭！可能需要手动关闭。</strong>';
+                    }
+                }, 100); // 稍微延迟检查
+
+            } catch (error) {
+                logOnPageB(`<strong>错误: 调用 window.close() 时发生异常: ${error.message}</strong>`);
+                console.error('[页面 B] window.close() 异常:', error);
+            }
+
+            logOnPageB("发送和关闭操作尝试完毕。");
         };
 
-        // 增加一个 beforeunload 事件监听器，看看关闭时是否会触发
+        // 监听 beforeunload 事件，看看关闭时是否触发
         window.addEventListener('beforeunload', (event) => {
-            console.log('[页面 B] beforeunload 事件触发。');
-            // 在某些情况下，标准浏览器不允许在这里阻止关闭由脚本打开的窗口
+            logOnPageB("检测到 'beforeunload' 事件。窗口即将卸载或关闭。");
+            // 这里不能可靠地阻止由脚本发起的关闭
         });
+
+        logOnPageB("页面加载完成，按钮事件监听器已设置。");
     </script>
 </body>
 </html>
