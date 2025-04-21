@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>页面 A (父页面)</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        #messageLog { border: 1px solid #ccc; padding: 10px; min-height: 50px; background-color: #f9f9f9; margin-top: 10px; white-space: pre-wrap; word-wrap: break-word; }
+        button { padding: 10px 15px; font-size: 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>页面 A</h1>
+    <p>这是初始页面。</p>
+    <button id="loginButton">模拟登录 (打开页面 B)</button>
+
+    <h2>接收到的来自页面 B 的消息:</h2>
+    <pre id="messageLog">尚未收到消息...</pre>
+
+    <script>
+        const loginButton = document.getElementById('loginButton');
+        const messageLog = document.getElementById('messageLog');
+        let popupWindowRef = null; // 用来保存弹窗的引用
+
+        loginButton.onclick = () => {
+            console.log('[页面 A] 尝试打开页面 B (popup.html)...');
+            messageLog.textContent = '尝试打开弹窗...';
+            // 模拟合作方的 window.open
+            // 注意：'popup.html' 需要能被 WebView 访问到
+            popupWindowRef = window.open('popup.html', 'authPopup', 'width=500,height=600,scrollbars=yes,resizable=yes');
+
+            if (popupWindowRef) {
+                console.log('[页面 A] 弹窗似乎已打开。等待消息...');
+                messageLog.textContent = '弹窗已打开，等待来自页面 B 的消息...';
+            } else {
+                console.error('[页面 A] 无法打开弹窗！可能是被阻止了。');
+                messageLog.textContent = '错误：无法打开弹窗！';
+            }
+        };
+
+        // 监听来自页面 B 的 postMessage
+        window.addEventListener('message', (event) => {
+            console.log('[页面 A] 收到 message 事件:', event);
+
+            // 可选的安全检查：检查消息来源
+            // if (event.origin !== '期望的来源') {
+            //     console.warn('[页面 A] 收到来自非预期来源的消息:', event.origin);
+            //     return;
+            // }
+
+            // 显示收到的数据
+            messageLog.textContent = `收到消息:\n${JSON.stringify(event.data, null, 2)}`;
+            console.log('[页面 A] 已将消息显示在页面上。');
+
+            // 检查弹窗是否已关闭 (仅作观察)
+            if (popupWindowRef) {
+                setTimeout(() => { // 稍微延迟检查，给 close() 一点时间
+                     if (popupWindowRef.closed) {
+                        console.log('[页面 A] 检测到弹窗已被关闭。');
+                    } else {
+                        console.warn('[页面 A] 检测到弹窗仍然是打开状态！');
+                    }
+                }, 100); // 100ms 后检查
+            }
+
+        }, false);
+
+        console.log('[页面 A] 页面加载完成，已设置好按钮点击和消息监听。');
+    </script>
+</body>
+</html>

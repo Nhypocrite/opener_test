@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>页面 B (模拟回调)</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #eef; }
+        .status { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>页面 B</h1>
+    <p>模拟授权成功后的回调页面。</p>
+    <p class="status" id="statusMessage">准备发送消息并尝试关闭...</p>
+
+    <script>
+        window.onload = () => {
+            console.log('[页面 B] 页面加载完成。');
+
+            // 模拟合作方获取到的数据
+            const dataToSend = {
+                status: 'success',
+                message: '模拟登录成功',
+                simulatedToken: 'fake-token-' + Date.now(),
+                userId: 'simulated-user-123'
+            };
+
+            // 模拟合作方的 setTimeout
+            const delay = 500; // 500ms 延迟
+            console.log(`[页面 B] 将在 ${delay}ms 后尝试 postMessage 和 close()。`);
+
+            setTimeout(() => {
+                console.log('[页面 B] setTimeout 触发，开始执行操作...');
+                const statusMessage = document.getElementById('statusMessage');
+                statusMessage.textContent = '正在尝试发送消息...';
+
+                // 1. 尝试发送消息给父窗口 (页面 A)
+                if (window.opener && !window.opener.closed) {
+                    console.log('[页面 B] 检测到 window.opener 存在且未关闭。尝试 postMessage...');
+                    try {
+                        // 使用 '*' 作为目标源，模拟合作方代码，允许发送到任何源
+                        window.opener.postMessage(dataToSend, '*');
+                        console.log('[页面 B] postMessage 已调用。数据:', dataToSend);
+                        statusMessage.textContent = '消息已尝试发送。正在尝试关闭...';
+                    } catch (error) {
+                        console.error('[页面 B] 调用 postMessage 时出错:', error);
+                        statusMessage.textContent = `发送消息时出错: ${error.message}`;
+                        // 即使出错，仍然尝试关闭
+                    }
+                } else {
+                    console.warn('[页面 B] window.opener 不存在、已关闭或无法访问。无法发送 postMessage。');
+                    statusMessage.textContent = '无法访问父窗口，无法发送消息。正在尝试关闭...';
+                }
+
+                // 2. 尝试关闭自身
+                console.log('[页面 B] 尝试调用 window.close()...');
+                try {
+                    window.close();
+                    // 如果 close() 成功执行，下面的日志可能不会在控制台出现 (因为窗口已关闭)
+                    console.log('[页面 B] window.close() 调用已执行 (不代表一定成功关闭)。');
+                    // 如果窗口没关掉，这条信息会显示
+                     if (!window.closed) {
+                         statusMessage.textContent += ' 但窗口似乎未能关闭。';
+                         document.body.innerHTML += '<p style="color: red;"><strong>窗口未能自动关闭。请手动关闭。</strong></p>';
+                     }
+                } catch (error) {
+                    console.error('[页面 B] 调用 window.close() 时出错:', error);
+                    statusMessage.textContent += ` 关闭窗口时出错: ${error.message}`;
+                }
+
+                console.log('[页面 B] 尝试发送消息和关闭的操作已完成。');
+
+            }, delay);
+        };
+
+        // 增加一个 beforeunload 事件监听器，看看关闭时是否会触发
+        window.addEventListener('beforeunload', (event) => {
+            console.log('[页面 B] beforeunload 事件触发。');
+            // 在某些情况下，标准浏览器不允许在这里阻止关闭由脚本打开的窗口
+        });
+    </script>
+</body>
+</html>
